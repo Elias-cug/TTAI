@@ -60,6 +60,46 @@ export const useAppStore = defineStore("app", {
           submitMethod: "enter",
         },
       ],
+      // Kimi 配置
+      [
+        "moonshot",
+        {
+          inputSelector: '.chat-input-editor, div[role="textbox"]',
+          submitMethod: "enter",
+        },
+      ],
+      // 豆包配置
+      [
+        "doubao",
+        {
+          inputSelector: 'textarea.semi-input-textarea, textarea[placeholder*="发消息"]',
+          submitMethod: "enter",  // 使用回车键提交
+        },
+      ],
+      // 通义千问配置
+      [
+        "qianwen",
+        {
+          inputSelector: 'textarea, textarea[placeholder*="通义"]',
+          submitMethod: "enter",  // 使用回车键提交
+        },
+      ],
+      // DeepSeek 配置
+      [
+        "deepseek",
+        {
+          inputSelector: 'textarea, textarea[placeholder*="DeepSeek"], input[type="text"]',
+          submitMethod: "enter",  // 使用回车键提交
+        },
+      ],
+      // MiniMax 配置
+      [
+        "minimax",
+        {
+          inputSelector: 'textarea, textarea[placeholder*="MiniMax"]',
+          submitMethod: "enter",  // 使用回车键提交
+        },
+      ],
       // 通用配置（默认）
       [
         "default",
@@ -426,10 +466,12 @@ export const useAppStore = defineStore("app", {
 
     // 获取应用的搜索配置
     getAppSearchConfig(appId: string): AppSearchConfig {
-      return (
-        this.appSearchConfigs.get(appId.toLowerCase()) ||
-        this.appSearchConfigs.get("default")!
-      );
+      const lowerAppId = appId.toLowerCase();
+      console.log("🔍 [appStore] 查找配置，appId:", lowerAppId);
+      console.log("📋 [appStore] 所有可用配置:", Array.from(this.appSearchConfigs.keys()));
+      const config = this.appSearchConfigs.get(lowerAppId) || this.appSearchConfigs.get("default")!;
+      console.log("✅ [appStore] 找到的配置:", config);
+      return config;
     },
 
     // 收集所有包含 tab 的面板
@@ -452,23 +494,44 @@ export const useAppStore = defineStore("app", {
 
     // 搜索所有应用
     async searchAllApps(searchText: string): Promise<void> {
+      console.log("🔍 [appStore] searchAllApps 被调用，搜索内容:", searchText);
       const panesWithTabs = this.getAllPanesWithTabs();
 
+      console.log(
+        "📊 [appStore] 找到的面板数量:",
+        panesWithTabs.length,
+        "所有 tabs:",
+        this.tabs.map((t) => ({ id: t.id, name: t.app.name }))
+      );
+
       if (panesWithTabs.length === 0) {
-        console.warn("没有打开的应用");
+        console.warn("⚠️ [appStore] 没有打开的应用");
         return;
       }
 
       // 为每个面板发送搜索请求
       const searchPromises = panesWithTabs.map((pane) => {
         const tab = this.tabs.find((t) => t.id === pane.tabId);
-        if (!tab) return Promise.resolve();
+        if (!tab) {
+          console.warn("⚠️ [appStore] 未找到 tab，paneId:", pane.id);
+          return Promise.resolve();
+        }
 
+        console.log(
+          "📤 [appStore] 向面板发送搜索:",
+          pane.id,
+          "应用:",
+          tab.app.name,
+          "appId:",
+          tab.app.id
+        );
         const config = this.getAppSearchConfig(tab.app.id);
+        console.log("⚙️ [appStore] 使用的配置:", config);
         return this.sendSearchToPane(pane.id, searchText, config);
       });
 
       await Promise.allSettled(searchPromises);
+      console.log("✅ [appStore] 所有搜索请求已发送");
     },
 
     // 向指定面板发送搜索（这个方法会被 AppView 调用）
@@ -477,6 +540,11 @@ export const useAppStore = defineStore("app", {
       searchText: string,
       config: AppSearchConfig
     ): Promise<void> {
+      console.log("📡 [appStore] 发送 search-pane 事件:", {
+        paneId,
+        searchText,
+        config,
+      });
       // 这个方法会通过事件或直接调用 AppView 的方法来实现
       // 由于需要在组件中访问 webview，我们通过事件来触发
       window.dispatchEvent(

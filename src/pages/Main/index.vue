@@ -32,7 +32,7 @@ const splitLayout = computed(() => appStore.getSplitLayout);
   overflow: hidden;
 
   .side-bar-wrapper {
-    width: 100px;
+    width: 50px;
     height: 100%;
     border-right: 1px solid #e0e0e0;
     flex-shrink: 0;

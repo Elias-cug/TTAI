@@ -8,6 +8,13 @@
       <div class="header-actions">
         <button
           class="action-btn"
+          @click="openDevTools"
+          title="打开开发者工具（调试 webview）"
+        >
+          🔧
+        </button>
+        <button
+          class="action-btn"
           @click="handleSplit('horizontal')"
           title="左右分屏"
         >
@@ -82,6 +89,32 @@ const handleClose = (e: MouseEvent) => {
   }
 };
 
+// 打开 webview 的开发者工具
+const openDevTools = () => {
+  const webview = webviewRef.value as any;
+  if (webview) {
+    console.log("🔧 [AppView] 打开 webview 开发者工具");
+    try {
+      if (webview.openDevTools) {
+        webview.openDevTools();
+      } else if (webview.getWebContents) {
+        const webContents = webview.getWebContents();
+        if (webContents && webContents.openDevTools) {
+          webContents.openDevTools();
+        }
+      } else {
+        // 尝试通过 executeJavaScript 打开
+        webview.executeJavaScript('console.log("Webview DevTools: 如果你能看到这条消息，说明 webview 正常工作")');
+        console.warn("⚠️ [AppView] 无法打开 webview 开发者工具，webview API 可能不支持");
+      }
+    } catch (error) {
+      console.error("❌ [AppView] 打开开发者工具失败:", error);
+    }
+  } else {
+    console.warn("⚠️ [AppView] webview 未找到");
+  }
+};
+
 // 生成搜索注入脚本
 const generateSearchScript = (
   searchText: string,
@@ -91,8 +124,25 @@ const generateSearchScript = (
   const { inputSelector, submitSelector, submitMethod = "enter" } = config;
 
   return `
-    (function() {
+    (async function() {
+      const startTime = Date.now();
       try {
+        console.log('🚀 搜索脚本开始执行，搜索内容:', ${escapedText});
+        console.log('📍 当前 URL:', window.location.href);
+        console.log('📍 document.readyState:', document.readyState);
+        
+        // 在页面上临时显示一个提示（用于调试）
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'ttai-debug-message';
+        debugDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: #007aff; color: white; padding: 10px 20px; border-radius: 8px; z-index: 999999999; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); font-family: sans-serif;';
+        debugDiv.textContent = '🔍 TTAI 正在注入: ' + ${escapedText};
+        document.body.appendChild(debugDiv);
+        setTimeout(() => {
+          if (debugDiv.parentNode) {
+            debugDiv.remove();
+          }
+        }, 3000);
+        
         // 查找输入框（尝试多个选择器）
         const selectors = ${JSON.stringify(
           inputSelector.split(",").map((s) => s.trim())
@@ -100,44 +150,165 @@ const generateSearchScript = (
         let input = null;
         for (const selector of selectors) {
           input = document.querySelector(selector);
-          if (input) break;
+          if (input) {
+            console.log('✅ 找到输入框，选择器:', selector);
+            break;
+          }
         }
         if (!input) {
-          console.warn('未找到输入框，尝试的选择器:', selectors);
+          console.warn('❌ 未找到输入框，尝试的选择器:', selectors);
+          const errorDiv = document.createElement('div');
+          errorDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: #ff3b30; color: white; padding: 10px 20px; border-radius: 8px; z-index: 999999; font-size: 14px;';
+          errorDiv.textContent = '❌ 未找到输入框';
+          document.body.appendChild(errorDiv);
+          setTimeout(() => errorDiv.remove(), 3000);
           return;
         }
 
+        console.log('找到输入框:', input.tagName, input.className);
+
         // 设置输入值
         if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-          input.value = ${escapedText};
+          console.log('🔧 设置 textarea/input 的值...');
+          
+          const text = ${escapedText};
+          
+          // 关键：使用 React Native Setter（绕过框架检测）
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLTextAreaElement.prototype,
+            'value'
+          ).set;
+          
+          // 先聚焦输入框
+          input.focus();
+          
+          // 使用 native setter 设置值
+          if (nativeInputValueSetter) {
+            nativeInputValueSetter.call(input, text);
+          } else {
+            input.value = text;
+          }
+          
+          // 触发 input 事件（必须用 InputEvent，带 inputType 和 data）
+          const inputEvent = new InputEvent('input', {
+            bubbles: true,
+            cancelable: true,
+            inputType: 'insertText',
+            data: text
+          });
+          input.dispatchEvent(inputEvent);
+          
+          // 再触发一个简单的 input 事件（确保兼容性）
           input.dispatchEvent(new Event('input', { bubbles: true }));
+          
+          // 触发 change 事件
           input.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          console.log('✅ textarea 值已设置，当前值:', input.value);
         } else if (input.isContentEditable || input.contentEditable === 'true') {
-          input.textContent = ${escapedText};
-          input.innerText = ${escapedText};
-          input.dispatchEvent(new Event('input', { bubbles: true }));
+          // 对于 contenteditable 元素，使用多种方式尝试设置内容
+          console.log('🔧 开始设置 contenteditable 内容...');
+          
+          // 方法1: 直接设置 innerHTML（最简单直接）
+          input.innerHTML = '<p>' + ${escapedText} + '</p>';
+          console.log('方法1 - innerHTML 设置后:', input.innerHTML);
+          
+          // 如果方法1失败（内容仍为空），尝试方法2
+          if (!input.textContent || input.textContent.trim() === '') {
+            console.log('方法1失败，尝试方法2...');
+            // 方法2: 使用 textContent
+            input.textContent = ${escapedText};
+            console.log('方法2 - textContent 设置后:', input.textContent);
+          }
+          
+          // 聚焦输入框
+          input.focus();
+          
+          // 设置光标到末尾
+          try {
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(input);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            console.log('✅ 光标已设置到末尾');
+          } catch (e) {
+            console.warn('⚠️ 设置光标失败:', e);
+          }
+          
+          // 触发输入事件（延迟一点，确保内容已设置）
+          setTimeout(() => {
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            input.dispatchEvent(new InputEvent('input', { 
+              bubbles: true, 
+              cancelable: true,
+              data: ${escapedText}
+            }));
+            console.log('✅ 已触发 input 事件');
+          }, 50);
+          
+          console.log('✅ 最终 contenteditable 内容:', input.innerHTML);
         }
 
         // 提交搜索
         if (${submitMethod === "click" && submitSelector ? "true" : "false"}) {
-          setTimeout(() => {
-            const submitSelectors = ${
-              submitSelector
-                ? JSON.stringify(submitSelector.split(",").map((s) => s.trim()))
-                : "[]"
-            };
-            let submitBtn = null;
+          // 等待一下，确保输入内容已经设置好
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          const submitSelectors = ${
+            submitSelector
+              ? JSON.stringify(submitSelector.split(",").map((s) => s.trim()))
+              : "[]"
+          };
+          let submitBtn = null;
+          
+          // 多次尝试查找按钮（因为按钮可能需要时间从 disabled 变为可用）
+          for (let attempt = 0; attempt < 5 && !submitBtn; attempt++) {
+            if (attempt > 0) {
+              console.log(\`🔄 第 \${attempt + 1} 次尝试查找发送按钮...\`);
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
+            // 尝试使用选择器查找
             for (const selector of submitSelectors) {
-              submitBtn = document.querySelector(selector);
+              const elements = document.querySelectorAll(selector);
+              // 智能筛选：查找包含"发送"、"提交"、"Send"等文本的按钮
+              for (const el of elements) {
+                const text = el.textContent?.trim() || '';
+                const ariaLabel = el.getAttribute('aria-label') || '';
+                const isDisabled = el.disabled || el.getAttribute('disabled') !== null;
+                
+                if ((
+                  text.includes('发送') || 
+                  text.includes('提交') || 
+                  text.includes('Send') ||
+                  text.includes('Submit') ||
+                  ariaLabel.includes('发送') ||
+                  ariaLabel.includes('Send')
+                )) {
+                  // 优先选择未禁用的按钮，但如果找不到，也可以尝试点击禁用的
+                  if (!isDisabled) {
+                    submitBtn = el;
+                    console.log('✅ 找到发送按钮:', text, 'disabled:', isDisabled);
+                    break;
+                  } else if (!submitBtn) {
+                    // 记录下这个按钮，如果找不到可用的，就用这个
+                    console.log('⚠️ 找到发送按钮但是被禁用:', text);
+                  }
+                }
+              }
               if (submitBtn) break;
             }
-            if (submitBtn) {
-              submitBtn.click();
-            }
-          }, 200);
-        } else {
-          // 使用回车键提交
-          setTimeout(() => {
+          }
+          
+          if (submitBtn) {
+            console.log('🖱️ 点击发送按钮');
+            submitBtn.click();
+          } else {
+            console.warn('⚠️ 未找到发送按钮，尝试使用回车键提交');
+            // 如果找不到按钮，尝试用回车键
             const enterEvent = new KeyboardEvent('keydown', {
               key: 'Enter',
               code: 'Enter',
@@ -147,30 +318,63 @@ const generateSearchScript = (
               cancelable: true
             });
             input.dispatchEvent(enterEvent);
-            
-            const enterEvent2 = new KeyboardEvent('keypress', {
-              key: 'Enter',
-              code: 'Enter',
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true
-            });
-            input.dispatchEvent(enterEvent2);
-            
-            const enterEvent3 = new KeyboardEvent('keyup', {
-              key: 'Enter',
-              code: 'Enter',
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true
-            });
-            input.dispatchEvent(enterEvent3);
-          }, 100);
+          }
+        } else {
+          // 使用回车键提交
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          console.log('触发回车键提交');
+          const enterEvent = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true
+          });
+          input.dispatchEvent(enterEvent);
+          
+          const enterEvent2 = new KeyboardEvent('keypress', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true
+          });
+          input.dispatchEvent(enterEvent2);
+          
+          const enterEvent3 = new KeyboardEvent('keyup', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true
+          });
+          input.dispatchEvent(enterEvent3);
         }
+        
+        const endTime = Date.now();
+        const result = {
+          success: true,
+          searchText: ${escapedText},
+          executionTime: endTime - startTime,
+          foundInput: !!input,
+          inputType: input ? (input.tagName + '.' + input.className) : null,
+          url: window.location.href,
+          submitMethod: ${JSON.stringify(submitMethod)},
+          submitAttempted: ${submitMethod === "click" && submitSelector ? "true" : "false"}
+        };
+        console.log('✅ 搜索脚本执行完成:', result);
+        return result;
       } catch (error) {
-        console.error('搜索脚本执行失败:', error);
+        console.error('❌ 搜索脚本执行失败:', error);
+        return {
+          success: false,
+          error: error.message,
+          stack: error.stack
+        };
       }
     })();
   `;
@@ -181,29 +385,59 @@ const executeSearch = async (
   searchText: string,
   config: AppSearchConfig
 ): Promise<void> => {
+  console.log("🎯 [AppView] executeSearch 被调用:", {
+    searchText,
+    config,
+    paneId: props.paneId,
+    tabId: props.tabId,
+    hasWebview: !!webviewRef.value,
+  });
+
   const webview = webviewRef.value as any;
   if (!webview) {
-    console.warn("Webview 未找到");
+    console.warn("⚠️ [AppView] Webview 未找到");
     return;
   }
 
   try {
     const script = generateSearchScript(searchText, config);
+    console.log("📝 [AppView] 生成的脚本长度:", script.length);
 
     // 检查 webview 是否已加载
-    if (webview.isLoading && !webview.isLoading()) {
+    const isLoading =
+      webview.isLoading && typeof webview.isLoading === "function"
+        ? webview.isLoading()
+        : false;
+    console.log("🔄 [AppView] webview 加载状态:", isLoading);
+
+    if (!isLoading) {
       // 已加载完成，直接执行
-      await webview.executeJavaScript(script);
+      console.log("✅ [AppView] webview 已加载，直接执行脚本");
+      try {
+        const result = await webview.executeJavaScript(script);
+        console.log("✅ [AppView] 脚本执行完成，返回值:", result);
+      } catch (err) {
+        console.error("❌ [AppView] 脚本执行出错:", err);
+        throw err;
+      }
     } else {
       // 等待加载完成
+      console.log("⏳ [AppView] webview 正在加载，等待完成...");
       const executeWhenReady = () => {
-        webview.executeJavaScript(script).catch((err: any) => {
-          console.error("执行搜索脚本失败:", err);
-        });
+        console.log("🚀 [AppView] 执行搜索脚本...");
+        webview
+          .executeJavaScript(script)
+          .then((result: any) => {
+            console.log("✅ [AppView] 脚本执行完成（延迟），返回值:", result);
+          })
+          .catch((err: any) => {
+            console.error("❌ [AppView] 执行搜索脚本失败:", err);
+          });
       };
 
       if (webview.addEventListener) {
         const handler = () => {
+          console.log("✅ [AppView] webview 加载完成事件触发");
           executeWhenReady();
           webview.removeEventListener("did-finish-load", handler);
         };
@@ -211,34 +445,82 @@ const executeSearch = async (
 
         // 如果已经加载完成，立即执行
         setTimeout(() => {
-          if (!webview.isLoading || !webview.isLoading()) {
+          const stillLoading =
+            webview.isLoading && typeof webview.isLoading === "function"
+              ? webview.isLoading()
+              : false;
+          if (!stillLoading) {
+            console.log("✅ [AppView] 延迟检查：webview 已加载完成");
             executeWhenReady();
             webview.removeEventListener("did-finish-load", handler);
           }
         }, 500);
       } else {
         // 如果没有事件监听器，延迟执行
+        console.log("⏰ [AppView] 没有事件监听器，延迟执行");
         setTimeout(executeWhenReady, 1000);
       }
     }
   } catch (error) {
-    console.error("执行搜索失败:", error);
+    console.error("❌ [AppView] 执行搜索失败:", error);
   }
 };
 
 // 监听搜索事件
 const handleSearchEvent = (event: CustomEvent) => {
+  console.log("📨 [AppView] 收到 search-pane 事件:", {
+    eventPaneId: event.detail.paneId,
+    myPaneId: props.paneId,
+    searchText: event.detail.searchText,
+    hasTab: !!tab.value,
+    tabName: tab.value?.app.name,
+  });
+
   const { paneId, searchText, config } = event.detail;
-  if (paneId === props.paneId && tab.value) {
-    executeSearch(searchText, config as AppSearchConfig);
+  if (paneId === props.paneId) {
+    if (tab.value) {
+      console.log("✅ [AppView] paneId 匹配，执行搜索");
+      executeSearch(searchText, config as AppSearchConfig);
+    } else {
+      console.warn("⚠️ [AppView] paneId 匹配但没有 tab");
+    }
+  } else {
+    console.log("⏭️ [AppView] paneId 不匹配，跳过");
   }
 };
 
 onMounted(() => {
+  console.log("🔌 [AppView] 组件挂载，注册事件监听器:", {
+    paneId: props.paneId,
+    tabId: props.tabId,
+    tabName: tab.value?.app.name,
+  });
   window.addEventListener("search-pane", handleSearchEvent as EventListener);
+
+  // 监听 webview 的控制台消息
+  const webview = webviewRef.value as any;
+  if (webview) {
+    webview.addEventListener("console-message", (e: any) => {
+      const prefix = `[Webview-${tab.value?.app.name}]`;
+      if (e.level === 0) {
+        console.log(prefix, e.message);
+      } else if (e.level === 1) {
+        console.warn(prefix, e.message);
+      } else if (e.level === 2) {
+        console.error(prefix, e.message);
+      }
+    });
+
+    webview.addEventListener("did-fail-load", (e: any) => {
+      console.error("❌ [AppView] webview 加载失败:", e);
+    });
+
+    console.log("✅ [AppView] webview 事件监听器已注册");
+  }
 });
 
 onUnmounted(() => {
+  console.log("🔌 [AppView] 组件卸载，移除事件监听器:", props.paneId);
   window.removeEventListener("search-pane", handleSearchEvent as EventListener);
 });
 </script>
