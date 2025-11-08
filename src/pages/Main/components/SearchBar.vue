@@ -57,13 +57,15 @@ const handleSearch = async () => {
   const text = searchText.value.trim();
   if (!text || isSearching.value) return;
 
+  console.log("🔍 [SearchBar] 开始搜索:", text);
   isSearching.value = true;
   try {
     await appStore.searchAllApps(text);
+    console.log("✅ [SearchBar] 搜索请求已发送");
     // 搜索完成后可以清空输入框或保留
     // searchText.value = "";
   } catch (error) {
-    console.error("搜索失败:", error);
+    console.error("❌ [SearchBar] 搜索失败:", error);
   } finally {
     // 延迟重置状态，让用户看到搜索完成
     setTimeout(() => {

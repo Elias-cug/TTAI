@@ -6,7 +6,14 @@ import vue from "@vitejs/plugin-vue";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
+    vue({
+      template: {
+        compilerOptions: {
+          // 将 webview 标签视为自定义元素（Electron 特性）
+          isCustomElement: (tag) => tag === "webview",
+        },
+      },
+    }),
     electron({
       main: {
         // Shortcut of `build.lib.entry`.
