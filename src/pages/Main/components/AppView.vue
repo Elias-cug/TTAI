@@ -98,18 +98,6 @@ const generateSearchScript = (
         console.log('📍 当前 URL:', window.location.href);
         console.log('📍 document.readyState:', document.readyState);
         
-        // 在页面上临时显示一个提示（用于调试）
-        const debugDiv = document.createElement('div');
-        debugDiv.id = 'ttai-debug-message';
-        debugDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: #007aff; color: white; padding: 10px 20px; border-radius: 8px; z-index: 999999999; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); font-family: sans-serif;';
-        debugDiv.textContent = '🔍 TTAI 正在注入: ' + ${escapedText};
-        document.body.appendChild(debugDiv);
-        setTimeout(() => {
-          if (debugDiv.parentNode) {
-            debugDiv.remove();
-          }
-        }, 3000);
-        
         // 查找输入框（尝试多个选择器）
         const selectors = ${JSON.stringify(
           inputSelector.split(",").map((s) => s.trim())
@@ -124,11 +112,6 @@ const generateSearchScript = (
         }
         if (!input) {
           console.warn('❌ 未找到输入框，尝试的选择器:', selectors);
-          const errorDiv = document.createElement('div');
-          errorDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: #ff3b30; color: white; padding: 10px 20px; border-radius: 8px; z-index: 999999; font-size: 14px;';
-          errorDiv.textContent = '❌ 未找到输入框';
-          document.body.appendChild(errorDiv);
-          setTimeout(() => errorDiv.remove(), 3000);
           return;
         }
 
