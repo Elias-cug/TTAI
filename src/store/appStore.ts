@@ -100,6 +100,15 @@ export const useAppStore = defineStore("app", {
           submitMethod: "enter",  // 使用回车键提交
         },
       ],
+      // Stepfun 配置
+      [
+        "stepfun",
+        {
+          inputSelector: 'textarea.Publisher_textarea__pMX9t:not([disabled]), textarea[placeholder*="可以问我"]',
+          submitSelector: 'button.w-8.h-8.rounded-lg:has(svg.custom-icon-send-outline), button.w-8.h-8.rounded-lg.bg-content-primary',
+          submitMethod: "click",  // 使用点击按钮提交
+        },
+      ],
       // 通用配置（默认）
       [
         "default",

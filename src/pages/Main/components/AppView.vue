@@ -204,8 +204,8 @@ const generateSearchScript = (
 
         // 提交搜索
         if (${submitMethod === "click" && submitSelector ? "true" : "false"}) {
-          // 等待一下，确保输入内容已经设置好
-          await new Promise(resolve => setTimeout(resolve, 300));
+          // 等待更长时间，确保输入内容已经设置好，且按钮状态已更新
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           const submitSelectors = ${
             submitSelector
@@ -224,28 +224,40 @@ const generateSearchScript = (
             // 尝试使用选择器查找
             for (const selector of submitSelectors) {
               const elements = document.querySelectorAll(selector);
-              // 智能筛选：查找包含"发送"、"提交"、"Send"等文本的按钮
+              
+              // 智能筛选：查找包含"发送"、"提交"、"Send"等文本的按钮，或者纯图标按钮
               for (const el of elements) {
                 const text = el.textContent?.trim() || '';
                 const ariaLabel = el.getAttribute('aria-label') || '';
                 const isDisabled = el.disabled || el.getAttribute('disabled') !== null;
+                const hasSvg = el.querySelector('svg') !== null;
                 
-                if ((
+                // 判断是否为发送按钮：
+                // 1. 文本包含关键词
+                // 2. 或者是纯图标按钮（有 SVG 且文本为空）
+                const isSubmitButton = (
                   text.includes('发送') || 
                   text.includes('提交') || 
                   text.includes('Send') ||
                   text.includes('Submit') ||
                   ariaLabel.includes('发送') ||
-                  ariaLabel.includes('Send')
-                )) {
-                  // 优先选择未禁用的按钮，但如果找不到，也可以尝试点击禁用的
-                  if (!isDisabled) {
+                  ariaLabel.includes('Send') ||
+                  (hasSvg && text === '')  // 纯图标按钮
+                );
+                
+                if (isSubmitButton) {
+                  // 检查按钮的背景色类（判断是否激活）
+                  const isActive = el.className.includes('bg-content-primary') || el.className.includes('bg-blue');
+                  const isGray = el.className.includes('bg-fill-gray') || el.className.includes('bg-gray');
+                  
+                  // 优先选择激活状态且未禁用的按钮
+                  if (!isDisabled && isActive) {
                     submitBtn = el;
-                    console.log('✅ 找到发送按钮:', text, 'disabled:', isDisabled);
+                    console.log('✅ 找到发送按钮:', text || '(图标按钮)', 'disabled:', isDisabled, 'hasSvg:', hasSvg);
                     break;
-                  } else if (!submitBtn) {
-                    // 记录下这个按钮，如果找不到可用的，就用这个
-                    console.log('⚠️ 找到发送按钮但是被禁用:', text);
+                  } else if (!isDisabled && !isGray && !submitBtn) {
+                    // 次选：未禁用且不是灰色的按钮
+                    submitBtn = el;
                   }
                 }
               }
@@ -255,17 +267,30 @@ const generateSearchScript = (
           
           if (submitBtn) {
             console.log('🖱️ 点击发送按钮');
+            // 尝试多种点击方式
             submitBtn.click();
+            // 延迟触发 dispatchEvent 确保兼容性
+            setTimeout(() => {
+              const clickEvent = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+              });
+              submitBtn.dispatchEvent(clickEvent);
+            }, 100);
           } else {
             console.warn('⚠️ 未找到发送按钮，尝试使用回车键提交');
             // 如果找不到按钮，尝试用回车键
+            input.focus();
             const enterEvent = new KeyboardEvent('keydown', {
               key: 'Enter',
               code: 'Enter',
               keyCode: 13,
               which: 13,
+              shiftKey: false,
               bubbles: true,
-              cancelable: true
+              cancelable: true,
+              composed: true
             });
             input.dispatchEvent(enterEvent);
           }
@@ -274,13 +299,30 @@ const generateSearchScript = (
           await new Promise(resolve => setTimeout(resolve, 300));
           
           console.log('触发回车键提交');
+          input.focus();
+          
+          // 尝试 form 提交
+          const form = input.closest('form');
+          if (form && form.requestSubmit) {
+            try {
+              form.requestSubmit();
+            } catch (e) {
+              console.warn('⚠️ form 提交失败，使用回车键:', e);
+            }
+          }
+          
+          // 触发回车键事件
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           const enterEvent = new KeyboardEvent('keydown', {
             key: 'Enter',
             code: 'Enter',
             keyCode: 13,
             which: 13,
+            shiftKey: false,
             bubbles: true,
-            cancelable: true
+            cancelable: true,
+            composed: true
           });
           input.dispatchEvent(enterEvent);
           
@@ -289,8 +331,10 @@ const generateSearchScript = (
             code: 'Enter',
             keyCode: 13,
             which: 13,
+            shiftKey: false,
             bubbles: true,
-            cancelable: true
+            cancelable: true,
+            composed: true
           });
           input.dispatchEvent(enterEvent2);
           
@@ -299,8 +343,10 @@ const generateSearchScript = (
             code: 'Enter',
             keyCode: 13,
             which: 13,
+            shiftKey: false,
             bubbles: true,
-            cancelable: true
+            cancelable: true,
+            composed: true
           });
           input.dispatchEvent(enterEvent3);
         }
