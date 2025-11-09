@@ -16,7 +16,8 @@
       "output": "release"
     },
     "mac": {
-      "icon": "public/one.icns"
+      "icon": "public/one.icns",
+      "identity": null
     }
   },
   "dependencies": {
