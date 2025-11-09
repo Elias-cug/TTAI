@@ -4,6 +4,13 @@
       <div class="header-left">
         <img :src="tab.app.logo" :alt="tab.title" class="header-icon" />
         <span class="header-title">{{ tab.title }}</span>
+        <button
+          class="action-btn refresh-btn"
+          @click="handleRefresh"
+          title="刷新页面"
+        >
+          ↻
+        </button>
       </div>
       <div class="header-actions">
         <button
@@ -79,6 +86,13 @@ const handleClose = (e: MouseEvent) => {
   e.stopPropagation();
   if (props.canClose) {
     appStore.closePane(props.paneId);
+  }
+};
+
+const handleRefresh = () => {
+  const webview = webviewRef.value as any;
+  if (webview && webview.reload) {
+    webview.reload();
   }
 };
 
@@ -566,6 +580,32 @@ onUnmounted(() => {
         font-size: 12px;
         color: #333333;
         font-weight: 500;
+      }
+
+      .refresh-btn {
+        width: 20px;
+        height: 20px;
+        border: none;
+        background: transparent;
+        color: #666666;
+        cursor: pointer;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: all 0.2s;
+        margin-left: 2px;
+
+        &:hover {
+          background-color: #e3f2fd;
+          color: #4a90e2;
+          transform: rotate(180deg);
+        }
+
+        &:active {
+          transform: rotate(180deg) scale(0.95);
+        }
       }
     }
 
