@@ -8,13 +8,6 @@
       <div class="header-actions">
         <button
           class="action-btn"
-          @click="openDevTools"
-          title="打开开发者工具（调试 webview）"
-        >
-          🔧
-        </button>
-        <button
-          class="action-btn"
           @click="handleSplit('horizontal')"
           title="左右分屏"
         >
@@ -86,32 +79,6 @@ const handleClose = (e: MouseEvent) => {
   e.stopPropagation();
   if (props.canClose) {
     appStore.closePane(props.paneId);
-  }
-};
-
-// 打开 webview 的开发者工具
-const openDevTools = () => {
-  const webview = webviewRef.value as any;
-  if (webview) {
-    console.log("🔧 [AppView] 打开 webview 开发者工具");
-    try {
-      if (webview.openDevTools) {
-        webview.openDevTools();
-      } else if (webview.getWebContents) {
-        const webContents = webview.getWebContents();
-        if (webContents && webContents.openDevTools) {
-          webContents.openDevTools();
-        }
-      } else {
-        // 尝试通过 executeJavaScript 打开
-        webview.executeJavaScript('console.log("Webview DevTools: 如果你能看到这条消息，说明 webview 正常工作")');
-        console.warn("⚠️ [AppView] 无法打开 webview 开发者工具，webview API 可能不支持");
-      }
-    } catch (error) {
-      console.error("❌ [AppView] 打开开发者工具失败:", error);
-    }
-  } else {
-    console.warn("⚠️ [AppView] webview 未找到");
   }
 };
 

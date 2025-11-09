@@ -6,16 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && electron-builder",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-icons": "electron-icon-builder --input=./public/one.png --output=build --flatten"
   },
   "build": {
-    "appId": "com.example.TTAI",
-    "productName": "TTAI",
+    "appId": "com.example.ONEAI",
+    "productName": "ONEAI",
     "directories": {
       "output": "release"
     },
     "mac": {
-      "icon": "public/tt.icns"
+      "icon": "public/one.icns"
     }
   },
   "dependencies": {
@@ -25,8 +26,9 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
-    "electron": "^30.0.1",
+    "electron": "^30.5.1",
     "electron-builder": "^24.13.3",
+    "electron-icon-builder": "^2.0.1",
     "sass": "^1.93.3",
     "typescript": "^5.2.2",
     "vite": "^5.1.6",
