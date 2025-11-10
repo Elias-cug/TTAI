@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TTAI is an Electron-based desktop application that aggregates multiple AI chat interfaces into a single workspace. It allows users to interact with various AI services (ChatGPT, Claude, Gemini, DeepSeek, etc.) simultaneously through a split-screen interface with tab management.
+ONEAI is an Electron-based desktop application that aggregates multiple AI chat interfaces into a single workspace. It allows users to interact with various AI services (ChatGPT, Claude, Gemini, DeepSeek, etc.) simultaneously through a split-screen interface with tab management.
 
 ## Development Commands
 
@@ -23,12 +23,19 @@ npm run dev  # Starts Vite dev server with hot reload
 npm run build  # Builds both renderer and main process, then packages with electron-builder
 ```
 
-Output is generated in the `release/` directory. The build produces a macOS application with the icon at `public/tt.icns`.
+Output is generated in the `release/` directory. The build produces a macOS application with the icon at `public/one.icns`.
+
+### Icon Generation
+```bash
+npm run generate-icons  # Generates app icons from public/one.png
+```
 
 ### Preview
 ```bash
 npm run preview  # Preview production build
 ```
+
+**Note**: This project does not have lint or typecheck scripts configured. If you need to add code quality checks, consider adding them to the package.json scripts.
 
 ## Architecture
 
@@ -93,10 +100,10 @@ The SearchBar component can broadcast a search query to all open AI apps simulta
 - Renderer output: `dist/`
 
 ### Electron Build Configuration
-- App ID: `com.example.TTAI`
-- Product Name: `TTAI`
+- App ID: `com.example.ONEAI`
+- Product Name: `ONEAI`
 - Output directory: `release/`
-- macOS icon: `public/tt.icns`
+- macOS icon: `public/one.icns`
 
 ## Common Patterns
 

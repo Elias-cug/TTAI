@@ -45,8 +45,8 @@ const showTooltip = (app: App, event: MouseEvent) => {
   const rect = target.getBoundingClientRect();
   
   tooltip.text = app.name;
-  tooltip.top = rect.top + rect.height / 2 - 15; // 垂直居中
-  tooltip.left = rect.right + 10; // 在图标右侧10px
+  tooltip.top = rect.bottom + 8; // 在图标下方8px
+  tooltip.left = rect.left + rect.width / 2 - 30; // 水平居中（大致）
   tooltip.show = true;
 };
 
@@ -77,16 +77,18 @@ const onClickBarItem = (app: App) => {
 .side-bar {
   width: fit-content;
   min-width: min-content;
-  height: 100%;
+  height: 60px;
   display: flex;
-  flex-direction: column;
-  overflow: auto;
-  padding: 4px;
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 4px;
   background-color: #ffffff;
   position: relative;
+  align-items: center;
 
   &::-webkit-scrollbar {
-    width: 6px;
+    height: 6px;
   }
 
   &::-webkit-scrollbar-thumb {
@@ -105,10 +107,11 @@ const onClickBarItem = (app: App) => {
     justify-content: center;
     cursor: pointer;
     border-radius: 6px;
-    padding: 4px;
-    margin-bottom: 4px;
+    padding: 8px;
+    margin-right: 4px;
     background-color: #ffffff;
     transition: all 0.2s;
+    flex-shrink: 0;
 
     &:hover {
       background-color: #f0f4f8;
